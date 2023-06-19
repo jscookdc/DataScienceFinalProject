@@ -1,0 +1,340 @@
+---
+title: "Project 2"
+author: "James Cook"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(leaps)
+sfn <- read_csv("https://sta112-f21.github.io/projects/sfn.csv")
+```
+
+
+## Introduction
+
+When it comes to discussing scientific information, the internet gives us the opportunity to discuss topics with other scholars around the world. That said, not all discussions are equal. Some invite long-term, high-level discussion with posts in the thousands, while others are riddled in disinformation and get closed by moderators early on. ScienceForums.Net, also known as SFN, is one such website where these discussions take place. SFN tracks information about posts on their site, allowing us to explore the nature of some of these posts.
+
+To understand the nature of some of these posts, we will explore the data collected by SFN to analyze the relationship between the number of posts on a thread and the total number of views the thread attracts, by the whole data set and by each individual forum. We will also explore the relationship independently of external factors -- for example, an older post has had more time to garner more views!
+
+
+## Data
+
+
+### Data Summary
+
+ScienceForums.Net is an open website where users can discuss topics on a range of scientific forums. A post on a forum in SFN creates a thread, comprised of a series of posts stemming from each initial post. SFN stores information about these posts in a table with each row being a thread. The table contains information about the thread age and duration; the state of the thread; the number of posts, deleted posts, unique authors, and views for the thread; the experience level of the original author; and whether or not the original author is currently banned. The data contains information about 9,995 threads each represented by a row with 10 data points. There is not any missing data.
+
+### Univariate EDA
+
+#### Age
+
+```{r, echo=F, message=F, warning=F, fig.cap="Figure 1: Distribution of Thread Ages on SFN", fig.align = 'center'}
+sfn %>%
+  ggplot(aes(x = Age)) +
+  labs(x = "Thread Age (Days)",
+       y = "Frequency",
+       title = "Distribution of Thread Ages on SFN") +
+  geom_histogram(binwidth = 365) + 
+  theme_minimal()
+```
+
+```{r, include=F}
+mean(sfn$Age)
+median(sfn$Age)
+sd(sfn$Age)
+IQR(sfn$Age)
+```
+
+The histogram found in Figure 1 shows the distribution of when threads on SFN were created, with the histogram bins each representing a 365-day year. The median post age is 2,165 days (Between 5 and 6 years), with an average of 2,148 days. This varies, on average, by 1,171 days. The middle 50% of posts are spread out over 2,063 days.
+
+#### Posts
+
+```{r, echo=F, message=F, warning=F, fig.cap="Figure 2: Distribution of Total Thread Posts on SFN", fig.align = 'center'}
+sfn %>%
+  ggplot(aes(x = Posts)) +
+  labs(x = "Thread Posts (#)",
+       y = "Frequency",
+       title = "Distribution of Posts per Thread on SFN") +
+  geom_histogram(binwidth = 100) + 
+  theme_minimal()
+```
+```{r, include=F}
+mean(sfn$Posts)
+median(sfn$Posts)
+sd(sfn$Posts)
+IQR(sfn$Posts)
+sum(sfn$Posts < 100)
+sum(sfn$Posts >= 100)
+```
+
+We can see from Figure 2 that the vast majority of threads have less than 100 posts. Out of all 9,995 threads, 9,848 of them have less than 100 posts, or 98.53%, while only 147 have more than 100. The average thread has 14 posts with a standard deviation of 30 posts. Threads have a median of 7 posts, with the middle 50% of threads existing within  a range of 11 posts.
+
+#### Views
+
+```{r, echo=F, message=F, warning=F, fig.cap="Figure 3: Distribution of Total Thread Views on SFN", fig.align = 'center'}
+sfn %>%
+  ggplot(aes(x = Views)) +
+  labs(x = "Thread Views (#)",
+       y = "Frequency",
+       title = "Distribution of Views per Thread on SFN") +
+  geom_histogram(binwidth = 500) + 
+  theme_minimal()
+```
+
+```{r, include=F}
+mean(sfn$Views)
+median(sfn$Views)
+sd(sfn$Views)
+IQR(sfn$Views)
+sum(sfn$Views < 1000)
+sum(sfn$Views >= 1000)
+max(sfn$Views)
+min(sfn$Views)
+```
+
+Figure 3 shows the distribution of total views for each thread. Like with figure 2, there is a clear indication that most threads do not get many views. Threads receive a median of 745 views, with the middle 50% existing on an interval of 898 views. However, the average thread gets 1500 views, with an average distance from that average of 3413 views. This is a clear indication that some posts are outliers -- for example, the most viewed post has 115,921 views and definitely pulls away from standard posts. Some posts have no views.
+
+#### Forum
+
+
+'
+```{r, include = FALSE}
+sum(sfn$Forum == "Science") / 9995
+sum(sfn$Forum == "Medicine") / 9995
+```
+
+Figure 4 shows that some of the forums are more popular than others. Out of the seven forums, 46% of threads are on the science forum, while only 5% are on the medicine forum.
+
+### Multivariate EDA
+
+#### Posts v. Views
+
+```{r, echo=F, message=F, warning=F, fig.cap="Figure 5: Relationship between Total Views and Total Posts per Thread on SFN", fig.align = 'center'}
+sfn %>%
+  ggplot(aes(x = Posts,
+             y = Views,
+             color = Forum,
+             shape = Forum)) +
+  labs(x = "Total Posts per Thread (#)",
+       y = "Total Views per Thread (#)",
+       color = "Forum",
+       shape = "Forum",
+       title = "Relationship between Total Views and Total Posts per Thread") +
+  geom_point() +
+  theme_minimal()
+```
+
+This scatter plot helps to visualize the relationship between posts and views for each thread. Generally, most threads have a handful of posts and views, shown by the high density of points closer to the origin. However, the plot does suggest that threads with more posts get more views.
+
+#### Age vs Views & Posts
+
+```{r, echo=F, message=F, warning=F, fig.cap="Figure 6: Relationship between Thread Age and Total Thread Views on SFN", fig.align = 'center'}
+sfn %>%
+  ggplot(aes(x = Age,
+             y = Views,
+             color = Forum,
+             shape = Forum)) +
+  labs(x = "Thread Age (Days)",
+       y = "Total Views per Thread (#)",
+       color = "Forum",
+       shape = "Forum",
+       title = "Age-to-View distribution") +
+  geom_point() +
+  theme_minimal()
+```
+
+
+
+```{r, echo=F, message=F, warning=F, fig.cap="Figure 7: Relationship between Thread Age and Total Thread Posts on SFN", fig.align = 'center'}
+sfn %>%
+  ggplot(aes(x = Age,
+             y = Posts,
+             color = Forum,
+             shape = Forum)) +
+  labs(x = "Thread Age (Days)",
+       y = "Total Posts per Thread (#)",
+       color = "Forum",
+       Shape = "Forum",
+       title = "Age-to-Post distribution") +
+  geom_point() +
+  theme_minimal()
+```
+
+We would expect pages that have been available to read longer (as in, the threads created earlier in time) would have more views and more posts. It makes sense; more time to view a thread means people over time are more likely to come across it. The sheer density of points makes it hard to visualize, but there also appears to be a positive relationship between thread age and views as well as thread age and posts, as visualized by figures 6 and 7.
+
+## Modeling
+
+
+### Model
+
+To create a model, first we have to consider what kinds of data points we want to consider - because not all data points are alike. To begin with, we don't necessarily want threads that have been closed. A closed thread can't generate new posts, but it can generate views -- this will certainly throw off our data. In a similar manner, posts by people who were banned from a science forum likely were banned for falsified information, unsupported evidence, clickbait, or something of the like. To truly get accurate data for these questions, we don't want to include those. As such, we want to remove all threads that are closed or have a banned author. 
+
+```{r, include=F}
+updated_sfn <- subset(sfn, State=="open" & AuthorBanned == "not banned")
+count(sfn) 
+count(updated_sfn) 
+count(sfn) - count(updated_sfn)
+```
+
+This process removed 872 data threads from consideration, now sitting at 9,123 threads. From here we can create our model. If we wanted to just test the base relationship between views and posts, we can create a very basic linear regression model with a single predictor.
+
+$\widehat{Views} = \widehat{\beta_0} + \widehat{\beta_1}Posts + \varepsilon$
+
+```{r, include=F}
+basic_lm <- lm(Views ~ Posts, data = updated_sfn)
+summary(basic_lm)
+```
+
+This comes out to be:
+
+$Views = 888.15 + 43.11Posts$
+
+However, this model assumes that all threads are alike, and this is not the case. Different forums likely have different audiences. To account for this, we also need to add interaction terms for each forum on SFN. 
+
+$\widehat{Views} = \widehat{\beta_0} + \widehat{\beta_1}Posts + \widehat{\beta_2}isHW + \widehat{\beta_3}isMath + \widehat{\beta_4}isMedicine + \widehat{\beta_5}isMisc + \widehat{\beta_6}isScience +  \widehat{\beta_7}isSpeculation + \varepsilon$
+
+But again, this isn't enough. Threads that have been around for longer or have had a longer ongoing discussion have more time to gather views. Similarly, threads by experienced authors or with more authors might have a larger following. The best way to create an accurate picture for views is to simply test for the best model.
+
+```{r, echo=F, message=F, warning=F, fig.cap="Figure 8: Best Subset Selection of Viable Remaining Data", fig.align = 'center'}
+#Need to do this because all AuthorBanned, State values are the same, so there is no effect to changing a beta term for either of these variables and the code breaks
+new_updated_sfn <- updated_sfn %>%
+  dplyr::select(-c(AuthorBanned, State))
+model_select <- regsubsets(Views ~.,
+                           data = new_updated_sfn,
+                           nvmax = 12,
+                           method = "exhaustive",
+                           really.big = T)
+plot(model_select, scale="adjr2")
+```
+
+Running a best subset selection, we can see that the best predictor for views includes thread age, posts, number of authors, number of deleted posts, and the forum name. Thus, our final model is:
+
+$\widehat{Views} = \widehat{\beta_0} + \widehat{\beta_1}Posts + \widehat{\beta_2}Age + \widehat{\beta_3}Duration + \widehat{\beta_4}Authors + \widehat{\beta_5}DeletedPosts + \widehat{\beta_6}isHW + \widehat{\beta_7}isMath + \widehat{\beta_8}isMedicine + \widehat{\beta_9}isMisc +  \widehat{\beta_10}isScience + \widehat{\beta_11}isSpeculation + \varepsilon$
+
+```{r, include=F}
+final_lm <- lm(Views ~ Posts + Age + Duration + Authors + DeletedPosts + Forum, data = new_updated_sfn)
+summary(final_lm)
+```
+
+Creating our multiple regression model, this comes out to be:
+
+$Views = -472.84 + 22.28Posts + 0.03Age + 3.92Duration + 114.31Authors + 46.59DeletedPosts + 1061.89isHW + 737.25isMath + 1213.10isMedicine + 499.99isMisc + 829.57isScience + 193.73isSpeculation$
+
+### Assumption Diagnostics
+
+We can visualize our data with three main plots: a residual plot, a QQ plot, and a studentized residual plot. These will help us assess whether our regression assumptions are reasonable by allowing us to explore shape, constant variance, normality, independence, and randomness.
+
+```{r, echo=F, message=F, warning=F, fig.cap="Figure 9: Residual Plot", fig.align='center'}
+new_updated_sfn %>%
+  mutate(yhat = predict(final_lm),
+         residuals = residuals(final_lm)) %>%
+  ggplot(aes(x = yhat,
+             y = residuals,
+             color = Forum,
+             shape = Forum)) +
+  labs(color = "Forum",
+       shape = "Forum") +
+  geom_point() +
+  geom_abline(slope = 0,
+              intercept = 0,
+              color = "blue",
+              lwd = 1.2) +
+  labs(x = "Predicted Views",
+       y = "Residual") +
+  theme_minimal()
+```
+
+```{r, echo=F, message=F, warning=F, fig.cap="Figure 10: QQ Plot", fig.align='center'}
+new_updated_sfn %>%
+  mutate(residuals = residuals(final_lm)) %>%
+  ggplot(aes(sample = residuals,
+             color = Forum,
+             shape = Forum)) +
+  labs(color = "Forum",
+       shape = "Forum") +
+  geom_qq() +
+  geom_qq_line() +
+  labs(x = "Theoretical normal quantiles",
+       y = "Observed residual quantiles") +
+  theme_minimal()
+```
+
+
+```{r, include=F}
+studentized_residual_plot <- function(fitted_model, data) {
+  data %>%
+    mutate(studentized_resids = rstudent(fitted_model),
+           yhat = predict(fitted_model)) %>%
+    ggplot(aes(x = yhat,
+               y = studentized_resids,
+               color = Forum,
+               shape = Forum)) +
+    labs(color = "Forum",
+         shape = "Forum") +
+    geom_point(size = 2.5) +
+    geom_abline(slope = 0, intercept = 0, color = "blue", lwd = 1.2) +
+    geom_abline(slope = 0, intercept = c(-3, -2, 2, 3),
+                color = "orange", lty = 2, lwd = 1.2) +
+    labs(x = "Predicted Response",
+         y = "Studentized Residuals") +
+    theme_minimal()
+}
+```
+
+```{r, echo=F, message=F, warning=F, fig.cap="Figure 11: Studentized Residual Plot", fig.align='center'}
+studentized_residual_plot(final_lm, new_updated_sfn)
+```
+
+It's somewhat hard to tell with the density of points, but Figure 9 indicates that the shape assumption holds for this model, as there are roughly as many points above the line as below the line. However, as the band of residuals does not have a roughly constant width until the end, the constant variance assumption does not hold. The QQ plot found in Figure 10 suggests the normality assumption holds, as the points are roughly linear. As we purposely removed all data with conditions that may skew the data, we cannot make the claim that this model is independent. In addition, we cannot make the claim that this data is random, as it includes data from a site people entered by their own free will rather than by random selection.
+
+
+We also need to address the multicollinearity of the model. This model has an adjusted R-squared value of 0.31, and a variance inflation factor of 1.449. As we get worried if a variance inflation factor is greater than 5, we can assume the predictors are not too correlated with one another.
+
+
+### Inference
+
+To determine if there is a relationship between posts and views, we can create null and alternate hypothesis with our model. Using our model below, our null hypothesis is that the number of posts on a thread has no impact on the views, while our alternative hypothesis is that the number of posts does impact the total views.
+
+$Views = -472.84 + 22.28Posts + 0.03Age + 3.92Duration + 114.31Authors + 46.59DeletedPosts + 1061.89isHW + 737.25isMath + 1213.10isMedicine + 499.99isMisc + 829.57isScience + 193.73isSpeculation$
+
+$H_0: \beta_1 = 0$
+
+$H_A: \beta_1 > 0$
+
+
+```{r, include=F}
+summary(final_lm)
+```
+
+Our model shows that our t-value for $\widehat{\beta_1}$ is 16.398 and our p-value is 2e-16. As this p-value is incredibly low, we can safely say that there is a relationship between views and posts. However, if we want to also test the relationship between specific forums and views we have to include those in a separate hypothesis and run a nested F-test. Our new null and alternate hypothesis are:
+
+$H_0: \beta_1 = \beta_6 = \beta_7 = \beta_8 = \beta_9 = \beta_10 = \beta_11 = 0$
+
+$H_A:$ At least one of $\beta_1, \beta_6, \beta_7, \beta_8, \beta_9, \beta_10, \beta_11 \neq 0$
+
+```{r, include=F}
+h1 <- lm(Views ~ Posts + Age + Duration + Authors + DeletedPosts + Forum, data = new_updated_sfn)
+h2 <- lm(Views ~ Age + Duration + Authors + DeletedPosts, data = new_updated_sfn)
+anova(h2, h1)
+```
+
+```{r, include=F}
+pf(62.165, df1 = 7, df2 = 9111, lower.tail=F)
+```
+
+Creating an anova table for these hypothesis shows us that our F-test yields a value of 62.165. Using this value, we can show that the p-value of this hypothesis is 9.36e-88. Therefore, as this value is so low, we can safely reject the null hypothesis again and say with confidence that the forum a thread is on is important in determining how many views a post gets.
+
+## Discussion
+
+Analyzing threads can be difficult -- especially because outlying threads that blow up in popularity can really skew data. However, when it comes to ideal threads,, i.e. open threads from unbanned authors, both the total number of posts on the thread and the forum the thread is posted on impacts the total number of views a post will get. If you want to get the most views on SFN, make a thread with a lot of posts on the Medicine forum!
+
+## Outside Sources
+
+To create a subset of the original data I pulled information I used from this link about the subset function: https://www.datasciencemadesimple.com/delete-or-drop-rows-in-r-with-conditions-2/
+
+In addition, the "dplyr::select(-c(AuthorBanned, State))" line I added was suggested by StackOverflow when I got an error running the best subset selection. As I had created a new data frame without banned authors or closed posts, all values in those rows was the same, leading an exhaustive search to effectively break when it tried including it or not including it in potential models. This line of code removes those columns from consideration, as including them would have no effect anyway.
+
+
+
